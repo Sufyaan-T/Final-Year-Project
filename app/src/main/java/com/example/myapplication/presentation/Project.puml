@@ -1,0 +1,69 @@
+@startuml
+
+
+
+    class MainActivity {
+        - sensorManager : SensorManager
+        - heartRateSensor : Sensor?
+        - heartRateSensorListener : SensorEventListener?
+        + onCreate(savedInstanceState : Bundle) : void
+        + scheduleReminder() : void
+        + startHeartRateUpdates(onHeartRateUpdated : (Int) -> Unit) : void
+        + onDestroy() : void
+        + SensorDataApp() : Composable
+    }
+
+    class BootCompleted {
+        + onReceive(context : Context, intent : Intent) : void
+    }
+
+    class ExerciseReminder {
+        + createNotificationChannel(context : Context) : void
+        + sendExerciseReminder(context : Context) : void
+    }
+
+    class ReminderBroadcast {
+        + onReceive(context : Context, intent : Intent) : void
+    }
+
+    ' External Android framework classes
+    class SensorManager {
+    }
+
+    class Sensor {
+    }
+
+    class SensorEventListener {
+        + onSensorChanged(event : SensorEvent?) : void
+        + onAccuracyChanged(sensor : Sensor?, accuracy : Int) : void
+    }
+
+    ' Standard classes often used in Android applications
+    class SensorEvent {
+    }
+
+    class Bundle {
+    }
+
+    class Context {
+    }
+
+    class Intent {
+    }
+
+    ' Association connections
+    MainActivity --> SensorManager : uses
+    MainActivity --> Sensor : uses
+    MainActivity --> SensorEventListener : uses
+    MainActivity --> "creates on boot" BootCompleted : uses
+    BootCompleted --> MainActivity : calls
+    ReminderBroadcast --> ExerciseReminder : creates & uses
+    BootCompleted --> ReminderBroadcast : triggers
+    MainActivity --> Bundle : receives
+    BootCompleted --> Context : receives
+    BootCompleted --> Intent : receives
+    ReminderBroadcast --> Context : receives
+    ReminderBroadcast --> Intent : receives
+}
+
+@enduml

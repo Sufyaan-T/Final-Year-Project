@@ -1,0 +1,179 @@
+package com.example.myapplication.presentation
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Bundle
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Devices
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.Text
+
+class MainActivity : ComponentActivity() {
+
+    private lateinit var sensorManager: SensorManager
+    private var heartRateSensor: Sensor? = null
+    private var heartRateSensorListener: SensorEventListener? = null
+    private var stepCounterSensor: Sensor? = null
+    private var stepCounterSensorListener: SensorEventListener? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+
+        setContent {
+            SensorDataApp()
+        }
+    }
+
+    @Preview(device = Devices.WEAR_OS_SMALL_ROUND, showSystemUi = true)
+    @Composable
+    fun SensorDataApp() {
+        var heartRate by remember { mutableStateOf(0) }
+        var stepCount by remember { mutableStateOf(0) }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colors.background),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Heart Rate: $heartRate",
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "Step Count: $stepCount",
+                textAlign = TextAlign.Center
+            )
+
+            LaunchedEffect(key1 = heartRateSensor) {
+                startHeartRateUpdates { newHeartRate ->
+                    heartRate = newHeartRate
+                }
+            }
+
+            LaunchedEffect(key1 = stepCounterSensor) {
+                startStepCounterUpdates { newStepCount ->
+                    stepCount = newStepCount
+                }
+            }
+        }
+    }
+
+    private fun startHeartRateUpdates(onHeartRateUpdated: (Int) -> Unit) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BODY_SENSORS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.BODY_SENSORS),
+                PERMISSION_REQUEST_BODY_SENSORS
+            )
+            return
+        }
+
+        heartRateSensorListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                event?.let {
+                    if (it.sensor.type == Sensor.TYPE_HEART_RATE) {
+                        val heartRateValue = it.values[0].toInt()
+                        Log.d(TAG, "New Heart Rate Data: $heartRateValue")
+                        onHeartRateUpdated(heartRateValue)
+                    }
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+                // Not needed for heart rate sensor
+            }
+        }
+
+        sensorManager.registerListener(
+            heartRateSensorListener,
+            heartRateSensor,
+            SensorManager.SENSOR_DELAY_NORMAL
+        )
+    }
+
+    private fun startStepCounterUpdates(onStepCountUpdated: (Int) -> Unit) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
+                PERMISSION_REQUEST_ACTIVITY_RECOGNITION
+            )
+            return
+        }
+
+        stepCounterSensorListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                event?.let {
+                    if (it.sensor.type == Sensor.TYPE_STEP_COUNTER) {
+                        val stepCountValue = it.values[0].toInt()
+                        Log.d(TAG, "New Step Count Data: $stepCountValue")
+                        onStepCountUpdated(stepCountValue)
+                    }
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+                // Not needed for step counter sensor
+            }
+        }
+
+        sensorManager.registerListener(
+            stepCounterSensorListener,
+            stepCounterSensor,
+            SensorManager.SENSOR_DELAY_NORMAL
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        heartRateSensorListener?.let {
+            sensorManager.unregisterListener(it)
+        }
+        stepCounterSensorListener?.let {
+            sensorManager.unregisterListener(it)
+        }
+    }
+
+    companion object {
+        private const val PERMISSION_REQUEST_BODY_SENSORS = 101
+        private const val PERMISSION_REQUEST_ACTIVITY_RECOGNITION = 102
+        private const val TAG = "SensorDataApp"
+    }
+}
